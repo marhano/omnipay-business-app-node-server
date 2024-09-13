@@ -1,7 +1,7 @@
 {
   "name": "omnipay-business-app-sqlite",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -14,5 +14,9 @@
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "@types/express-session": "^1.18.0",
+    "express-session": "^1.18.0"
   }
 }

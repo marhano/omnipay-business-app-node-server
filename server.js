@@ -1,96 +1,35 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const session = require('express-session');
+const dotenv = require("dotenv").config();
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const bcrypt = require('bcrypt');
 const app = express();
-const saltRounds = 10; // Number of salt rounds
-
-// Connect to the SQLite database
-const db = new sqlite3.Database('./db/obdb.sqlite');
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:4200',
+  methods: 'GET,POST,PUT,DELETE',
+  credentials: true
+}));
 app.use(bodyParser.json());
+app.use(session({
+  secret: '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',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false, sameSite: 'Lax' }
+}));
 
-app.post('/loginUser', (req, res) => {
-    const { username, password } = req.body;
 
-    if(!username || !password){
-        return res.status(400).json({ error: 'Username and password are required' });
-    }
+app.use("/api/user", require("./routes/userRoutes"));
 
-    db.get('SELECT * FROM tblUser WHERE Username = ?', [username], (err, row) => {
-        if(err){
-            return res.status(500).json({ error: err.message });
-        }
+app.use('/api/product', require('./routes/productRoutes'));
 
-        if(row){
-            // Check if the user is inactive
-            if (row.Inactive) {
-                return res.status(403).json({ error: 'Account is inactive' });
-            }
+app.use('/api/warehouse', require('./routes/warehouseRoutes'));
 
-            bcrypt.compare(password, row.Password, (err, result) => {
-                if (err) {
-                    return res.status(500).json({ error: err.message });
-                }
-
-                if (result) {
-                    res.json({ success: true, user: row });
-                } else {
-                    let newAttempt = row.Attempt + 1;
-
-                    let inactive = newAttempt >= 5 ? 1 : 0;
-
-                    db.run(
-                        'UPDATE tblUser SET Attempt = ?, Inactive = ? WHERE Username = ?',
-                        [newAttempt, inactive, username],
-                        function (err) {
-                          if (err) {
-                            return res.status(500).json({ error: err.message });
-                          }
-            
-                          res.status(401).json({ error: 'Invalid username or password' });
-                        }
-                    );
-                }
-            });
-        }else{
-            res.status(401).json({ success: false, error: 'Invalid username or password' });
-        }
-    });
-});
-
-app.post('/registerUser', (req, res) => {
-    const { username, password } = req.body;
-  
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' });
-    }
-  
-    // Hash the password
-    bcrypt.hash(password, saltRounds, (err, hashedPassword) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
-  
-      // Insert the new user with the hashed password
-      db.run(
-        'INSERT INTO tblUser (Username, Password, DateCreated, Inactive, FirstTime, Attempt) VALUES (?, ?, ?, ?, ?, ?)',
-        [username, hashedPassword, new Date().toISOString(), 0, 1, 0],
-        function (err) {
-          if (err) {
-            return res.status(500).json({ error: err.message });
-          }
-          res.json({ message: 'User registered successfully' });
-        }
-      );
-    });
-});
+app.use('/api/session', require('./routes/sessionRoutes'));
 
 // Start the server
-const PORT = 3000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
