@@ -5,12 +5,12 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const app = express();
 
-app.use(express.json());
 app.use(cors({
-  origin: 'http://localhost:4200',
+  origin: '*',
   methods: 'GET,POST,PUT,DELETE',
-  credentials: true
 }));
+app.use(express.json());
+
 app.use(bodyParser.json());
 app.use(session({
   secret: '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',
