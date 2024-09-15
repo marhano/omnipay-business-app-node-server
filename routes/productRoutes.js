@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { 
     getProducts,
+    getProduct,
     getCategories,
     getUnitOfMeasures,
     createProduct
@@ -14,5 +15,7 @@ router.route("/createproduct").post(createProduct);
 router.route("/categories").get(getCategories);
 
 router.route("/unitofmeasures").get(getUnitOfMeasures);
+
+router.route("/:id").get(getProduct);
 
 module.exports = router;

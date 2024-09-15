@@ -14,13 +14,223 @@ const {
 //@route GET /api/product
 //@access public
 const getProducts = async (req, res) => {
-    try{
-        const result = await all('SELECT * FROM tblProducts');
-        res.status(200).json(result);
-    }catch(error){
+    try {
+        // Execute SQL query
+        const result = await all(`SELECT
+            a.ProductID,
+            a.ProductRefID,
+            a.ProductName,
+            a.CategoryID,
+            b.CategoryDescription AS CategoryName,
+            a.SubCategoryID,
+            c.SubCategoryDescription AS SubCategoryName,
+            a.ProductDescription,
+            a.DateCreated,
+            a.DateModified,
+            a.TotalQuantity,
+            a.Tags,
+            a.ProductType,
+            a.UnitOfMeasureID,
+            d.Description AS UnitOfMeasure,
+            a.Status,
+            COALESCE(e.SalesInfoID, h.SalesInfoID) AS SalesInfoID,
+            COALESCE(e.CostPerUnit, h.CostPerUnit) AS UnitPrice,
+            COALESCE(e.RetailPrice, h.RetailPrice) AS RetailPrice,
+            COALESCE(e.SKU, h.SKU) AS SKU,
+            COALESCE(e.Status, f.Status) AS SalesInfoStatus,
+            f.InventoryID,
+            f.WarehouseID,
+            g.Description AS Warehouse,
+            f.Quantity,
+            f.Status AS InventoryStatus,
+            f.Hold,
+            f.Deleted
+        FROM tblProducts a
+        LEFT JOIN tblCategory b ON a.CategoryID = b.CategoryID
+        LEFT JOIN tblSubCategory c ON a.SubCategoryID = c.SubCategoryID
+        LEFT JOIN tblUnitOfMeasure d ON a.UnitOfMeasureID = d.UnitOfMeasureID
+        LEFT JOIN tblSalesInfo e ON a.SalesInfoID = e.SalesInfoID
+        LEFT JOIN tblInventoryInfo f ON a.ProductID = f.ProductID
+        LEFT JOIN tblWarehouse g ON f.WarehouseID = g.WarehouseID
+        LEFT JOIN tblSalesInfo h ON a.ProductID = h.ProductID AND e.SalesInfoID IS NULL`);
+
+        // Process the result to match the Product model
+        const products = result.reduce((acc, row) => {
+            // Find or create the product entry
+            let product = acc.find(p => p.productID === row.ProductID);
+            if (!product) {
+                product = {
+                    productID: row.ProductID,
+                    productRefID: row.ProductRefID,
+                    productName: row.ProductName,
+                    categoryID: row.CategoryID,
+                    categoryName: row.CategoryName,
+                    subCategoryID: row.SubCategoryID,
+                    subCategoryName: row.SubCategoryName,
+                    productDescription: row.ProductDescription,
+                    dateCreated: row.DateCreated,
+                    dateModified: row.DateModified,
+                    totalQuantity: row.TotalQuantity,
+                    tags: row.Tags,
+                    productType: row.ProductType,
+                    unitOfMeasureID: row.UnitOfMeasureID,
+                    unitOfMeasure: row.UnitOfMeasure,
+                    status: row.Status,
+                    salesInfo: null,
+                    inventoryInfos: []
+                };
+                acc.push(product);
+            }
+
+            // Assign sales info
+            if (row.SalesInfoID) {
+                product.salesInfo = {
+                    salesInfoID: row.SalesInfoID,
+                    unitPrice: row.UnitPrice,
+                    retailPrice: row.RetailPrice,
+                    sku: row.SKU,
+                    status: row.SalesInfoStatus
+                };
+            }
+
+            // Add inventory info
+            if (row.InventoryID) {
+                product.inventoryInfos.push({
+                    inventoryID: row.InventoryID,
+                    warehouseID: row.WarehouseID,
+                    warehouse: row.Warehouse,
+                    quantity: row.Quantity,
+                    status: row.InventoryStatus,
+                    hold: row.Hold,
+                    deleted: row.Deleted
+                });
+            }
+
+            return acc;
+        }, []);
+
+        res.status(200).json(products);
+    } catch (error) {
         res.status(500).json({ error: error.message });
     }
-}
+};
+
+//@desc Get product
+//@route GET /api/product:id
+//@access public
+const getProduct = async (req, res) => {
+    const productId = parseInt(req.params.id, 10);
+
+    if (isNaN(productId)) {
+        return res.status(400).json({ error: 'Invalid product ID' });
+    }
+
+    try {
+        // Execute SQL query
+        const result = await all(`SELECT
+            a.ProductID,
+            a.ProductRefID,
+            a.ProductName,
+            a.CategoryID,
+            b.CategoryDescription AS CategoryName,
+            a.SubCategoryID,
+            c.SubCategoryDescription AS SubCategoryName,
+            a.ProductDescription,
+            a.DateCreated,
+            a.DateModified,
+            a.TotalQuantity,
+            a.Tags,
+            a.ProductType,
+            a.UnitOfMeasureID,
+            d.Description AS UnitOfMeasure,
+            a.Status,
+            COALESCE(e.SalesInfoID, h.SalesInfoID) AS SalesInfoID,
+            COALESCE(e.CostPerUnit, h.CostPerUnit) AS UnitPrice,
+            COALESCE(e.RetailPrice, h.RetailPrice) AS RetailPrice,
+            COALESCE(e.SKU, h.SKU) AS SKU,
+            COALESCE(e.Status, f.Status) AS SalesInfoStatus,
+            f.InventoryID,
+            f.WarehouseID,
+            g.Description AS Warehouse,
+            f.Quantity,
+            f.Status AS InventoryStatus,
+            f.Hold,
+            f.Deleted
+        FROM tblProducts a
+        LEFT JOIN tblCategory b ON a.CategoryID = b.CategoryID
+        LEFT JOIN tblSubCategory c ON a.SubCategoryID = c.SubCategoryID
+        LEFT JOIN tblUnitOfMeasure d ON a.UnitOfMeasureID = d.UnitOfMeasureID
+        LEFT JOIN tblSalesInfo e ON a.SalesInfoID = e.SalesInfoID
+        LEFT JOIN tblInventoryInfo f ON a.ProductID = f.ProductID
+        LEFT JOIN tblWarehouse g ON f.WarehouseID = g.WarehouseID
+        LEFT JOIN tblSalesInfo h ON a.ProductID = h.ProductID AND e.SalesInfoID IS NULL
+        WHERE a.ProductID = ?`, [productId]);
+
+        if (result.length === 0) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+
+        // Process the result to match the Product model
+        const products = result.reduce((acc, row) => {
+            // Find or create the product entry
+            let product = acc.find(p => p.productID === row.ProductID);
+            if (!product) {
+                product = {
+                    productID: row.ProductID,
+                    productRefID: row.ProductRefID,
+                    productName: row.ProductName,
+                    categoryID: row.CategoryID,
+                    categoryName: row.CategoryName,
+                    subCategoryID: row.SubCategoryID,
+                    subCategoryName: row.SubCategoryName,
+                    productDescription: row.ProductDescription,
+                    dateCreated: row.DateCreated,
+                    dateModified: row.DateModified,
+                    totalQuantity: row.TotalQuantity,
+                    tags: row.Tags,
+                    productType: row.ProductType,
+                    unitOfMeasureID: row.UnitOfMeasureID,
+                    unitOfMeasure: row.UnitOfMeasure,
+                    status: row.Status,
+                    salesInfo: null,
+                    inventoryInfos: []
+                };
+                acc.push(product);
+            }
+
+            // Assign sales info
+            if (row.SalesInfoID) {
+                product.salesInfo = {
+                    salesInfoID: row.SalesInfoID,
+                    unitPrice: row.UnitPrice,
+                    retailPrice: row.RetailPrice,
+                    sku: row.SKU,
+                    status: row.SalesInfoStatus
+                };
+            }
+
+            // Add inventory info
+            if (row.InventoryID) {
+                product.inventoryInfos.push({
+                    inventoryID: row.InventoryID,
+                    warehouseID: row.WarehouseID,
+                    warehouse: row.Warehouse,
+                    quantity: row.Quantity,
+                    status: row.InventoryStatus,
+                    hold: row.Hold,
+                    deleted: row.Deleted
+                });
+            }
+
+            return acc;
+        }, []);
+
+        res.status(200).json(products[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 
 //@desc Insert product
 //@route POST /api/product/createproduct
@@ -101,35 +311,6 @@ const createProduct = async (req, res) => {
     }
 }
 
-//@desc Insert product
-//@route POST /api/product/createproduct
-//@access public
-const createInventoryInfo = async (req, res) => {
-    const { error, value } = inventoryInfoSchema.validate(req.body);
-
-    try{
-        const result = await run(
-            `INSERT INTO tblInventoryInfo (
-                WarehouseID, 
-                Quantity, 
-                ProductID, 
-                Status) 
-                VALUES (?, ?, ?, ?)`,
-            [
-                value.warehouseID, 
-                value.quantity, 
-                value.unitOfMeasureID, 
-                1, 
-            ]
-        );
-
-        res.status(200).json(result);
-    }catch(error){
-        res.status(500).json({ error: error.message });
-    }
-}
-
-
 //@desc Get all category
 //@route GET /api/product/categories
 //@access public
@@ -165,6 +346,7 @@ const getUnitOfMeasures = async (req, res) => {
 
 module.exports = {
     getProducts,
+    getProduct,
     getCategories,
     getUnitOfMeasures,
     createProduct
