@@ -4,11 +4,13 @@ const {
     get,
     all
 } = require('../services/dbService');
+const { generateToken } = require('../services/jwtService');
+const { handleError, USER_ERRORS, SERVER_ERRORS } = require('../constants/errorConstants');
 
 
 //@desc Get all user
 //@route GET /api/user
-//@access public
+//@access private
 const getUsers = async (req, res) => {
     try {
         const users = await all('SELECT * FROM tblUser');
@@ -25,7 +27,7 @@ const loginUser = async (req, res) => {
     const { username, password } = req.body;
 
     if(!username || !password){
-        return res.status(400).json({ error: 'Username and password are required' });
+        return handleError(res, 400, USER_ERRORS.MISSING_CREDENTIALS);
     }
 
     try{
@@ -33,7 +35,7 @@ const loginUser = async (req, res) => {
 
         if(row){
             if (row.Inactive) {
-                return res.status(403).json({ error: 'Account is inactive' });
+                return handleError(res, 403, USER_ERRORS.ACCOUNT_INACTIVE);
             }
 
             const isPasswordValid = await bcrypt.compare(password, row.Password);
@@ -41,23 +43,36 @@ const loginUser = async (req, res) => {
             if(isPasswordValid){
                 req.session.user = { username };
 
-                return res.json({ success: true, user: req.session.user });
+                console.log(req.session);
+                await run(
+                    'UPDATE tblUser SET Attempt = ? WHERE Username = ?',
+                    [0, username]
+                );
+
+                // Generate JWT token
+                const token = generateToken({username, password});
+
+                return res.json({ success: true, user: req.session.user, token: token });
             }else{
                 let newAttempt = row.Attempt + 1;
                 let inactive = newAttempt >= 5 ? 1 : 0;
 
-                await runQuery(
+                await run(
                     'UPDATE tblUser SET Attempt = ?, Inactive = ? WHERE Username = ?',
                     [newAttempt, inactive, username]
                 );
 
-                return res.status(401).json({ error: 'Invalid username or password' });
+                if (inactive) {
+                    return handleError(res, 403, USER_ERRORS.ACCOUNT_LOCKED);
+                }
+
+                return handleError(res, 401, USER_ERRORS.INVALID_CREDENTIALS);
             }
         }else{
-            res.status(401).json({ success: false, error: 'Invalid username or password' });
+            return handleError(res, 401, USER_ERRORS.USER_NOT_FOUND);
         }
     }catch(error){
-        res.status(500).json({ error: err.message });
+        return handleError(res, 500, SERVER_ERRORS.INTERNAL_SERVER_ERROR);
     }
     
 }
@@ -88,8 +103,9 @@ const registerUser = async (req, res) => {
 
 //@desc Logout user
 //@route GET /api/user/logout
-//@access public
+//@access private
 const logoutUser = (req, res) => {
+    console.log(req.session);
     req.session.destroy((err) => {
         if (err) {
           return res.status(500).json({ error: 'Logout failed' });
