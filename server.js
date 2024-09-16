@@ -2,7 +2,6 @@ const express = require('express');
 const session = require('express-session');
 const dotenv = require("dotenv").config();
 const cors = require('cors');
-const bodyParser = require('body-parser');
 const app = express();
 
 app.use(cors({
@@ -10,13 +9,18 @@ app.use(cors({
   methods: 'GET,POST,PUT,DELETE',
 }));
 app.use(express.json());
-app.use(bodyParser.json());
 app.use(session({
   secret: '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',
   resave: false,
   saveUninitialized: true,
   cookie: { secure: false, sameSite: 'Lax' }
 }));
+app.use((req, res, next) => {
+  res.setHeader('bypass-tunnel-reminder', 'true');
+  req.headers['user-agent'] = 'CustomUserAgent/1.0';
+  
+  next();
+});
 
 
 app.use("/api/user", require("./routes/userRoutes"));
