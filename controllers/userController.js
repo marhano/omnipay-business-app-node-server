@@ -42,8 +42,6 @@ const loginUser = async (req, res) => {
 
             if(isPasswordValid){
                 req.session.user = { username };
-
-                console.log(req.session);
                 await run(
                     'UPDATE tblUser SET Attempt = ? WHERE Username = ?',
                     [0, username]
@@ -105,7 +103,6 @@ const registerUser = async (req, res) => {
 //@route GET /api/user/logout
 //@access private
 const logoutUser = (req, res) => {
-    console.log(req.session);
     req.session.destroy((err) => {
         if (err) {
           return res.status(500).json({ error: 'Logout failed' });
