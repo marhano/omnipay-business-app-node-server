@@ -9,7 +9,7 @@ const {
 } = require("../controllers/productController");
 const authMiddleware = require('../authMiddleware');
 
-router.route("/").get(authMiddleware, getProducts);
+router.route("/:type").get(authMiddleware, getProducts);
 
 router.route("/createproduct").post(authMiddleware, createProduct);
 
@@ -17,6 +17,6 @@ router.route("/categories").get(authMiddleware, getCategories);
 
 router.route("/unitofmeasures").get(authMiddleware, getUnitOfMeasures);
 
-router.route("/:id").get(authMiddleware, getProduct);
+router.route("/product/:id").get(authMiddleware, getProduct);
 
 module.exports = router;

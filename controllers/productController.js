@@ -14,6 +14,8 @@ const {
 //@route GET /api/product
 //@access public
 const getProducts = async (req, res) => {
+    const type = req.params.type;
+
     try {
         // Execute SQL query
         const result = await all(`SELECT
@@ -52,7 +54,8 @@ const getProducts = async (req, res) => {
         LEFT JOIN tblSalesInfo e ON a.SalesInfoID = e.SalesInfoID
         LEFT JOIN tblInventoryInfo f ON a.ProductID = f.ProductID
         LEFT JOIN tblWarehouse g ON f.WarehouseID = g.WarehouseID
-        LEFT JOIN tblSalesInfo h ON a.ProductID = h.ProductID AND e.SalesInfoID IS NULL`);
+        LEFT JOIN tblSalesInfo h ON a.ProductID = h.ProductID AND e.SalesInfoID IS NULL
+        WHERE a.ProductType = "${type}"`);
 
         // Process the result to match the Product model
         const products = result.reduce((acc, row) => {
